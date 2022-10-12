@@ -1,67 +1,140 @@
+import telegram
+import praw
+import random
+import itertools
 from bs4 import BeautifulSoup
 from pymongo import MongoClient
 import datetime
+import websocket
 import requests
 import json
 import time
 import os
+import pdb
 
-def search_craigslist(event, lambda_context):
+def search_craigslist():
     locations_list = [
-        'asheville', 'boone', 'charlotte', 'eastnc', 'fayetteville', 'hickory', 
-        'jacksonville', 'outerbanks', 'raleigh', 'wilmington', 'winstonsalem'
+        'auburn', 'bham', 'dothan', 'shoals', 'gadsden', 'huntsville', 'mobile', 'montgomery',
+        'tuscaloosa', 'anchorage', 'fairbanks', 'kenai', 'juneau', 'flagstaff', 'mohave', 'phoenix',
+        'prescott', 'showlow', 'sierravista', 'tucson', 'yuma', 'fayar', 'fortsmith', 'jonesboro',
+        'littlerock', 'texarkana', 'bakersfield', 'chico', 'fresno', 'goldcountry', 'hanford', 'humboldt',
+        'imperial', 'inlandempire', 'losangeles', 'mendocino', 'merced', 'modesto', 'monterey', 'orangecounty',
+        'palmsprings', 'redding', 'sacramento', 'sandiego', 'sfbay', 'slo', 'santabarbara', 'santamaria', 'siskiyou',
+        'stockton', 'susanville', 'ventura', 'visalia', 'yubasutter', 'boulder', 'cosprings', 'denver', 'eastco',
+        'fortcollins', 'rockies', 'pueblo', 'westslope', 'newlondon', 'hartford', 'newhaven', 'nwct', 'delaware',
+        'washingtondc', 'miami', 'daytona', 'keys', 'fortlauderdale', 'fortmyers', 'gainesville', 'cfl',
+        'jacksonville', 'lakeland', 'miami', 'lakecity', 'ocala', 'okaloosa', 'orlando', 'panamacity', 'pensacola',
+        'sarasota', 'miami', 'spacecoast', 'staugustine', 'tallahassee', 'tampa', 'treasure', 'miami', 'albanyga',
+        'athensga', 'atlanta', 'augusta', 'brunswick', 'columbusga', 'macon', 'nwga', 'savannah', 'statesboro',
+        'valdosta', 'honolulu', 'boise', 'eastidaho', 'lewiston', 'twinfalls', 'bn', 'chambana', 'chicago', 'decatur',
+        'lasalle', 'mattoon', 'peoria', 'rockford', 'carbondale', 'springfieldil', 'quincy', 'bloomington',
+        'evansville', 'fortwayne', 'indianapolis', 'kokomo', 'tippecanoe', 'muncie', 'richmondin', 'southbend',
+        'terrehaute', 'ames', 'cedarrapids', 'desmoines', 'dubuque', 'fortdodge', 'iowacity', 'masoncity', 'quadcities',
+        'siouxcity', 'ottumwa', 'waterloo', 'lawrence', 'ksu', 'nwks', 'salina', 'seks', 'swks', 'topeka', 'wichita', 'bgky',
+        'eastky', 'lexington', 'louisville', 'owensboro', 'westky', 'batonrouge', 'cenla', 'houma', 'lafayette', 'lakecharles',
+        'monroe', 'neworleans', 'shreveport', 'maine', 'annapolis', 'baltimore', 'easternshore', 'frederick', 'smd', 'westmd',
+        'boston', 'capecod', 'southcoast', 'westernmass', 'worcester', 'annarbor', 'battlecreek', 'centralmich', 'detroit',
+        'flint', 'grandrapids', 'holland', 'jxn', 'kalamazoo', 'lansing', 'monroemi', 'muskegon', 'nmi', 'porthuron', 'saginaw',
+        'swmi', 'thumb', 'up', 'bemidji', 'brainerd', 'duluth', 'mankato', 'minneapolis', 'rmn', 'marshall', 'stcloud', 'gulfport',
+        'hattiesburg', 'jackson', 'meridian', 'northmiss', 'natchez', 'columbiamo', 'joplin', 'kansascity', 'kirksville', 'loz',
+        'semo', 'springfield', 'stjoseph', 'stlouis', 'billings', 'bozeman', 'butte', 'greatfalls', 'helena', 'kalispell', 'missoula',
+        'montana', 'grandisland', 'lincoln', 'northplatte', 'omaha', 'scottsbluff', 'elko', 'lasvegas', 'reno', 'nh', 'cnj',
+        'jerseyshore', 'newjersey', 'southjersey', 'albuquerque', 'clovis', 'farmington', 'lascruces', 'roswell', 'santafe',
+        'albany', 'binghamton', 'buffalo', 'catskills', 'chautauqua', 'elmira', 'fingerlakes', 'glensfalls', 'hudsonvalley',
+        'ithaca', 'longisland', 'newyork', 'oneonta', 'plattsburgh', 'potsdam', 'rochester', 'syracuse', 'twintiers', 'utica',
+        'watertown', 'asheville', 'boone', 'charlotte', 'eastnc', 'fayetteville', 'greensboro', 'hickory', 'onslow',
+        'outerbanks', 'raleigh', 'wilmington', 'winstonsalem', 'bismarck', 'fargo', 'grandforks', 'nd', 'akroncanton', 'ashtabula',
+        'athensohio', 'chillicothe', 'cincinnati', 'cleveland', 'columbus', 'dayton', 'limaohio', 'mansfield', 'sandusky', 'toledo',
+        'tuscarawas', 'youngstown', 'zanesville', 'lawton', 'enid', 'oklahomacity', 'stillwater', 'tulsa', 'bend', 'corvallis', 'eastoregon',
+        'eugene', 'klamath', 'medford', 'oregoncoast', 'portland', 'roseburg', 'salem', 'altoona', 'chambersburg', 'erie', 'harrisburg',
+        'lancaster', 'allentown', 'meadville', 'philadelphia', 'pittsburgh', 'poconos', 'reading', 'scranton', 'pennstate', 'williamsport',
+        'york', 'providence', 'charleston', 'columbia', 'florencesc', 'greenville', 'hiltonhead', 'myrtlebeach', 'nesd', 'csd', 'rapidcity',
+        'siouxfalls', 'sd', 'chattanooga', 'clarksville', 'cookeville', 'jacksontn', 'knoxville', 'memphis', 'nashville',
+        'tricities', 'abilene', 'amarillo', 'austin', 'beaumont', 'brownsville', 'collegestation', 'corpuschristi', 'dallas',
+        'nacogdoches', 'delrio', 'elpaso', 'galveston', 'houston', 'killeen', 'laredo', 'lubbock', 'mcallen', 'odessa', 'sanangelo',
+        'sanantonio', 'sanmarcos', 'bigbend', 'texoma', 'easttexas', 'victoriatx', 'waco', 'wichitafalls', 'logan', 'ogden', 'provo',
+        'saltlakecity', 'stgeorge', 'burlington', 'charlottesville', 'danville', 'fredericksburg', 'norfolk', 'harrisonburg',
+        'lynchburg', 'blacksburg', 'richmond', 'roanoke', 'swva', 'winchester', 'bellingham', 'kpr', 'moseslake', 'olympic',
+        'pullman', 'seattle', 'skagit', 'spokane', 'wenatchee', 'yakima', 'charlestonwv', 'martinsburg', 'huntington',
+        'morgantown', 'wheeling', 'parkersburg', 'swv', 'wv', 'appleton', 'eauclaire', 'greenbay', 'janesville', 'racine',
+        'lacrosse', 'madison', 'milwaukee', 'northernwi', 'sheboygan', 'wausau', 'wyoming', 'micronesia', 'puertorico', 'virgin',
+        'brussels', 'bulgaria', 'zagreb', 'copenhagen', 'bordeaux', 'rennes', 'grenoble', 'lille', 'loire', 'lyon', 'marseilles',
+        'montpellier', 'cotedazur', 'rouen', 'paris', 'strasbourg', 'toulouse', 'budapest', 'reykjavik', 'dublin', 'luxembourg',
+        'amsterdam', 'oslo', 'bucharest', 'moscow', 'stpetersburg', 'ukraine', 'bangladesh', 'micronesia', 'jakarta', 'tehran',
+        'baghdad', 'haifa', 'jerusalem', 'telaviv', 'ramallah', 'kuwait', 'beirut', 'malaysia', 'pakistan', 'dubai', 'vietnam',
+        'auckland', 'christchurch', 'wellington', 'buenosaires', 'lapaz', 'belohorizonte', 'brasilia', 'curitiba', 'fortaleza',
+        'portoalegre', 'recife', 'rio', 'salvador', 'saopaulo', 'caribbean', 'santiago', 'colombia', 'costarica', 'santodomingo',
+        'quito', 'elsalvador', 'guatemala', 'managua', 'panama', 'lima', 'puertorico', 'montevideo', 'caracas', 'virgin', 'cairo',
+        'addisababa','accra','kenya','casablanca','tunis'
     ]
 
+    connection = f"mongodb+srv://mkrul:b!gdumbd0gwithmongodb@cluster0.uadok.mongodb.net/?retryWrites=true&w=majority"
+    client = MongoClient(connection)
+    db = client["craigslist"]
+    random.shuffle(locations_list)
+    reddit = praw.Reddit('puppysearch')
+
+    for location in itertools.cycle(locations_list):
+        search(location, 'sss', db, reddit)
+        search(location, 'pet', db, reddit)
+        search(location, 'pas', db, reddit)
+
+def search(location, path, db, reddit):
     keywords = [
-      "plex", "quad", "fix", "flip", "invest", "handy", "multi", "unit", "rehab", "rental"
+      'pitbull', 'pittbull' 'pit bull', 'pitt bull', 'american bully', 'american bulldog', 'xl bullies'
+      'xl bully', 'xl bulldog', 'staffie', 'pocket bully', 'exotic bully', 'bullys', 'xl babies',
+      'exotic bullies', 'pocket bullies', 'bullies', 'xl bulley', 'pocket bullys', 'micro bullies',
+      'micro bullies', 'micro bulleys', 'pocket bullie', 'apbt', 'rednose', 'bluenose',
+      'pit/bully', 'pitbull/bully', 'american bulldog', 'xl bulldog', 'xl bullie'
     ]
 
     ignore_list = [
-        "townhome", "hardmoneylender", "land", "lookingfor", "loan", "gated", 
-        "condo", "townhouse", "newhome", "charming", "waterfront", "beach",
-        "mountain", "club", "acreage", "buildlot", "newbuild", "acreslot",
-        "acrelot", "timeshare", "dreamhome", "dreamhouse"
+        'concert', 'tickets', 'weldar', 'tailgate', 'camouflage', 'truck', 'dump truck', 'recorder',
+        'pizza oven', 'head banger ball', 'head bangers ball', 'bathroom sink', 'road base',
+        'battery charger', 'battery and charger', 'hairband', 'necklace', 'tools', 'dump trailer',
+        'dinnerware', 'headbands', 'pizza restaurants', 'cratsman', 'craftsman', 'star wars',
+        'dewalt', 'salad', 'basket', 'snowman', 'plate', 'dinnerware', 'headband', 'head band', 'hair band',
+        "can't stop us now", 'cant stop us now', 'bully dog gt', 'national champions', 'fire wood',
+        'georgia bulldogs', 'diesel gauge', 'collectable', 'collectible', 'cigar', 'bosch'
     ]
 
-    price_min = 0
-    price_max = 250000
+    url = f"https://{location}.craigslist.org/search/{path}"
+    print(f'making request to {url}')
+    record = send_request(url)
+    search_results = record.find_all("a", { "class": "result-title" })
 
-    password = os.environ['db_password']
-    connection = f"mongodb+srv://test:{password}@cluster0-uadok.mongodb.net/test?retryWrites=true&w=majority"
-    client = MongoClient(connection)
-    db = client["craigslist"]
+    for result in search_results:
+        title = result.contents[0].replace("&", " ")
+        description = get_description(record)
 
-    for location in locations_list:
-        url = f"https://{location}.craigslist.org/d/real-estate/search/rea"
-        listing = search_listings(url)
-        search_results = listing.find_all("a", { "class": "result-title" })
+        # downcase and remove white space
+        result_string = result.contents[0].lower() + description
 
-        for result in search_results:
-            title = result.contents[0].replace("&", " ")
+        # check record against blacklist of ignored words
+        ignored_words = any(word in result_string for word in ignore_list)
 
-            # downcase and remove white space
-            result_string = result.contents[0].lower().replace(" ", "")
-
-            # check listing against blacklist of ignored words
-            ignored_words = any(word in result_string for word in ignore_list)
-
-            # check listing against whitelist of allowed words
-            if any(word in result_string for word in keywords) and ignored_words == False:
-                listing = create_listing(title, result["href"])
-                listing_count = db["listings"].count_documents({
-                    "title": listing["title"],
-                    "location": listing["location"],
-                    "price": listing["price"],
-                })
-
-                # check to see if listing price falls between min and max price and that the document doesn't already exist
-                if listing_count == 0 and int(listing["price"]) >= price_min and int(listing["price"]) <= price_max:
-                    print (f"Creating new listing: {listing['title']}")
-                    db["listings"].insert_one(listing)
-            else:
+        # check record against whitelist
+        if any(word in result_string for word in keywords) and ignored_words == False:
+            record = initialize_record(reddit, db, title, result["href"])
+            if record == None:
                 pass
 
-def search_listings(url):
+            record_count = db["records"].count_documents({
+                "url": url
+            })
+
+            # check to see if the document already exists
+            if record_count == 0:
+                print (f"Creating new record: {record['title']}")
+                post_record_to_telegram(title, result["href"])
+                submission = post_record_to_reddit(reddit, title, result["href"])
+                record["shortlink"] = submission.shortlink
+                record["removed"] = 0
+                db["records"].insert_one(record)
+        else:
+            pass
+
+def send_request(url):
     retries = 0
     wait = 2
     success = False
@@ -78,88 +151,68 @@ def search_listings(url):
             retries += 1
             if retries >= 3:
                 log_error("Retry limit exceeded", e)
-    
+                break
+
     response_str = response.content.decode("utf-8")
     return BeautifulSoup(response_str, "html.parser")
+
+def initialize_record(reddit, db, title, url):
+    record = send_request(url)
+
+    # check to see if post has been removed
+    has_been_removed = record.find("span", {"id": "has_been_removed"})
+    if has_been_removed:
+        cleanup_reddit_post(reddit, db, url)
+        return None
+    else:
+        image = get_image(record)
+        return {
+            "title": title,
+            "url": url,
+            "image": image
+        }
+
+def get_image(record):
+    try:
+        return record.find("meta", property="og:image")["content"]
+    except Exception:
+        return ""
+
+def get_description(record):
+    try:
+        return record.find_all("section", { "id": "postingbody" })[0].text.strip()
+    except Exception:
+        return ""
 
 def log_error(msg, e):
     print(msg)
     print(e)
 
-def get_price(listing):
-    try:
-        return listing.find("span", {"class": "price"}).text.replace("$", "")
-    except Exception as e:
-        log_error("Price missing or invalid", e)
-        return "0"
+def post_record_to_reddit(reddit, title, url):
+    submission = reddit.subreddit('puppysearch').submit(title, url)
 
-def get_location(listing):
-    geocode_url = "https://api.opencagedata.com/geocode/v1/"
-    api_key = os.environ['opencagedata_api_key']
+    return submission
 
-    try:
-        # use latitude / longitude to get exact property address
-        map_data = listing.find("meta", { "name": "geo.position"} )["content"].partition(";")
-        opencagedata_uri = f"{geocode_url}json?key={api_key}&q={map_data[0]}%2C{map_data[2]}"
-        geolocations = requests.get(opencagedata_uri)
-        location_data = json.loads(geolocations.text)
-        return location_data['results'][0]['formatted'].replace(", United States of America", "")
-    except Exception as e:
-        log_error("Geocode location missing or invalid", e)
-        return fallback_location(listing)
+def cleanup_reddit_post(reddit, db, url):
+    record = db.records.find({"url": url})
 
-def fallback_location(listing):
-    try:
-        placename = listing.find("meta", { "name": "geo.placename"} )["content"]
-        region = listing.find("meta", { "name": "geo.region"} )["content"].partition("-")[2]
-        return f"{placename}, {region}"
-    except Exception as e:
-        log_error("Fallback location missing or invalid", e)
-        return ""
+    if record:
+        # remove post from reddit and mongo db
+        print(f'Cleaning up post for {url}')
+        db.records.find_one_and_update({"url": url}, {"$set": {"removed": 1}})
+        reddit.submission(record["shortlink"]).delete()
 
-def get_description(listing):
-    try:
-        return listing.find("meta", { "name": "description"} )["content"]
-    except Exception as e:
-        log_error("Description not found or invalid", e)
-        return ""
+# def test():
+#     api_token = '5790809926:AAE6d_R7k5A70HpEhf6d4GDw_et57oBbi9o'
+#     chat_id = '-1001884619259'
+#     api_url = f'https://api.telegram.org/bot{api_token}/sendMessage'
+#     requests.post(api_url, json={'chat_id': chat_id, 'text': 'test'})
 
-def get_listed_date(listing):
-    try:
-        return listing.time.attrs["datetime"][:10]
-    except Exception as e:
-        log_error("Listed date missing or invalid", e)
-        return ""
+def post_record_to_telegram(title, url):
+    api_token = '5790809926:AAE6d_R7k5A70HpEhf6d4GDw_et57oBbi9o'
+    chat_id = '-1001884619259'
+    api_url = f'https://api.telegram.org/bot{api_token}/sendMessage'
 
-def get_image(listing):
-    try:
-        return listing.find("meta", property="og:image")["content"]
-    except Exception as e:
-        log_error("Image missing or invalid", e)
-        return ""
+    requests.post(api_url, json={'chat_id': chat_id, 'text': url})
 
-def get_created_at():
-    now = datetime.datetime.now()
-    return now.strftime("%Y-%m-%d %H:%M:%S")
-
-def create_listing(title, url):
-    print(f"Making GET request to {url}")
-    listing = search_listings(url)
-
-    price = get_price(listing)
-    location = get_location(listing)
-    description = get_description(listing)
-    listed_date = get_listed_date(listing)
-    image = get_image(listing)
-    created_at = get_created_at()
-
-    return {
-        "title": title,
-        "price": price,
-        "location": location,
-        "description": description,
-        "listed_date": listed_date,
-        "created_at": created_at,
-        "url": url,
-        "image": image
-    }
+search_craigslist()
